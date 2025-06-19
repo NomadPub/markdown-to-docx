@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Markdown to DOCX Converter
  * Description: Convert Markdown text to Word DOCX format. Use [markdown_to_docx] shortcode to embed on any page.
- * Version: 1.1
+ * Version: 1.2
  * Author: Damon Noisette
  */
 // Prevent direct access
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Load PHPWord if available (requires Composer autoloader)
+// Load PHPWord if available
 if (file_exists(__DIR__ . '/vendor/autoload.php')) {
     require_once __DIR__ . '/vendor/autoload.php';
 }
@@ -56,63 +56,88 @@ class MarkdownToDocxConverter {
 
     private function render_converter_form() {
         ?>
-        <div class="markdown-to-docx-converter">
-            <h2>Convert Markdown to Word</h2>
-            <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
+        <div class="markdown-to-docx-converter-container">
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="markdown-to-docx-form">
                 <input type="hidden" name="action" value="convert_markdown">
                 <?php wp_nonce_field('convert_markdown_nonce', 'markdown_nonce'); ?>
-                <p>
-                    <label for="markdown_content">Markdown Content:</label><br>
-                    <textarea 
-                        name="markdown_content" 
-                        id="markdown_content" 
-                        rows="10" 
-                        cols="80" 
-                        style="width: 100%;"
-                        placeholder="Enter your Markdown content here..."><?php echo isset($_POST['markdown_content']) ? esc_textarea(stripslashes($_POST['markdown_content'])) : ''; ?></textarea>
-                </p>
-                <p>
-                    <label for="document_title">Document Title:</label><br>
-                    <input 
-                        type="text" 
-                        name="document_title" 
-                        id="document_title" 
-                        value="<?php echo isset($_POST['document_title']) ? esc_attr($_POST['document_title']) : 'Converted Document'; ?>" 
-                        style="width: 100%;">
-                </p>
-                <?php submit_button('Convert to DOCX', 'primary', 'submit', false); ?>
+
+                <label for="markdown_content">Enter Markdown:</label>
+                <textarea name="markdown_content" id="markdown_content" rows="10" cols="80" placeholder="Type your Markdown here..."><?php echo isset($_POST['markdown_content']) ? esc_textarea(stripslashes($_POST['markdown_content'])) : ''; ?></textarea>
+
+                <label for="document_title">Document Title:</label>
+                <input type="text" name="document_title" id="document_title" value="<?php echo isset($_POST['document_title']) ? esc_attr($_POST['document_title']) : 'Converted_Document'; ?>">
+
+                <input type="submit" name="submit" class="button button-primary" value="Convert to DOCX">
             </form>
-            <div class="markdown-help">
-                <h3>Supported Markdown Syntax</h3>
-                <p><strong>Headers:</strong> # H1, ## H2, ### H3</p>
-                <p><strong>Bold:</strong> **bold text**</p>
-                <p><strong>Italic:</strong> *italic text*</p>
-                <p><strong>Links:</strong> [link text](URL)</p>
-                <p><strong>Lists:</strong> - item or 1. item</p>
-                <p><strong>Code:</strong> `inline code` or ```code block```</p>
+
+            <div class="markdown-syntax-help">
+                <h4>Supported Syntax</h4>
+                <ul>
+                    <li><strong>Headers:</strong> # H1, ## H2, ### H3</li>
+                    <li><strong>Bold:</strong> **bold text**</li>
+                    <li><strong>Italic:</strong> *italic text*</li>
+                    <li><strong>Links:</strong> [text](url)</li>
+                    <li><strong>Lists:</strong> - item or 1. item</li>
+                    <li><strong>Code:</strong> `inline` or ```block```</li>
+                </ul>
             </div>
         </div>
+
         <style>
-        .markdown-to-docx-converter {
-            max-width: 800px;
-            margin: 20px auto;
-            padding: 20px;
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        .markdown-help {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f9f9f9;
-            border-left: 4px solid #0073aa;
-        }
-        .markdown-help h3 {
-            margin-top: 0;
-        }
-        .markdown-help p {
-            margin: 5px 0;
-        }
+            .markdown-to-docx-converter-container {
+                max-width: 800px;
+                margin: 2rem auto;
+                padding: 1.5rem;
+                background-color: #fff;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                font-family: sans-serif;
+            }
+
+            .markdown-to-docx-converter-container h2 {
+                margin-top: 0;
+                font-size: 1.5rem;
+            }
+
+            .markdown-to-docx-form label {
+                display: block;
+                margin-top: 1rem;
+                font-weight: bold;
+            }
+
+            .markdown-to-docx-form textarea,
+            .markdown-to-docx-form input[type="text"] {
+                width: 100%;
+                padding: 0.5rem;
+                margin-top: 0.3rem;
+                box-sizing: border-box;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                font-size: 1rem;
+                font-family: monospace;
+            }
+
+            .markdown-to-docx-form input[type="submit"] {
+                margin-top: 1rem;
+                padding: 0.5rem 1rem;
+            }
+
+            .markdown-syntax-help {
+                margin-top: 1.5rem;
+                padding: 1rem;
+                background: #f9f9f9;
+                border-left: 4px solid #0073aa;
+                border-radius: 4px;
+            }
+
+            .markdown-syntax-help ul {
+                margin: 0;
+                padding-left: 1.2rem;
+            }
+
+            .markdown-syntax-help li {
+                margin-bottom: 0.4rem;
+            }
         </style>
         <?php
     }
@@ -123,7 +148,7 @@ class MarkdownToDocxConverter {
             wp_die('Security check failed');
         }
 
-        // Optional: Restrict access
+        // Check user permissions
         if (!current_user_can('edit_posts')) {
             wp_die('You are not allowed to convert documents.');
         }
