@@ -1,0 +1,7 @@
+{
+  "name": "yourname/markdown-to-docx",
+  "description": "Convert Markdown to DOCX in WordPress",
+  "require": {
+    "phpoffice/phpword": "^1.2"
+  }
+}
