@@ -2,15 +2,13 @@
 /**
  * Plugin Name: Markdown to DOCX Converter
  * Description: Convert Markdown text to Word DOCX format. Use [markdown_to_docx] shortcode to embed on any page.
- * Version: 1.4
+ * Version: 1.5
  * Author: Damon Noisette
  */
-
 // Prevent direct access
 if (!defined('ABSPATH')) {
     exit;
 }
-
 // Load PHPWord if available
 if (file_exists(__DIR__ . '/vendor/autoload.php')) {
     require_once __DIR__ . '/vendor/autoload.php';
@@ -26,7 +24,6 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
  * - Document generation
  */
 class MarkdownToDocxConverter {
-
     /**
      * Constructor
      * Initialize hooks and register shortcode
@@ -96,20 +93,16 @@ class MarkdownToDocxConverter {
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="markdown-to-docx-form">
                 <input type="hidden" name="action" value="convert_markdown">
                 <?php wp_nonce_field('convert_markdown_nonce', 'markdown_nonce'); ?>
-
                 <label for="markdown_content">Enter Markdown:</label>
                 <textarea name="markdown_content" id="markdown_content" rows="10" cols="80"
                           placeholder="Type your Markdown here..."><?php
                     echo isset($_POST['markdown_content']) ? esc_textarea(stripslashes($_POST['markdown_content'])) : '';
                     ?></textarea>
-
                 <label for="document_title">Document Title:</label>
                 <input type="text" name="document_title" id="document_title"
                        value="<?php echo isset($_POST['document_title']) ? esc_attr($_POST['document_title']) : 'Converted_Document'; ?>">
-
                 <input type="submit" name="submit" class="button button-primary" value="Convert to DOCX">
             </form>
-
             <div class="markdown-syntax-help">
                 <h4>Supported Syntax</h4>
                 <ul>
@@ -119,10 +112,10 @@ class MarkdownToDocxConverter {
                     <li><strong>Links:</strong> [text](url)</li>
                     <li><strong>Lists:</strong> - item or 1. item</li>
                     <li><strong>Code:</strong> `inline` or ```block```</li>
+                    <li><strong>Tables:</strong> | Column1 | Column2 |</li>
                 </ul>
             </div>
         </div>
-
         <!-- Isolated CSS to prevent theme conflicts -->
         <style>
             .markdown-to-docx-converter-container {
@@ -134,13 +127,11 @@ class MarkdownToDocxConverter {
                 border-radius: 8px;
                 font-family: sans-serif;
             }
-
             .markdown-to-docx-form label {
                 display: block;
                 margin-top: 1rem;
                 font-weight: bold;
             }
-
             .markdown-to-docx-form textarea,
             .markdown-to-docx-form input[type="text"] {
                 width: 100%;
@@ -152,12 +143,10 @@ class MarkdownToDocxConverter {
                 font-size: 1rem;
                 font-family: monospace;
             }
-
             .markdown-to-docx-form input[type="submit"] {
                 margin-top: 1rem;
                 padding: 0.5rem 1rem;
             }
-
             .markdown-syntax-help {
                 margin-top: 1.5rem;
                 padding: 1rem;
@@ -165,12 +154,10 @@ class MarkdownToDocxConverter {
                 border-left: 4px solid #0073aa;
                 border-radius: 4px;
             }
-
             .markdown-syntax-help ul {
                 margin: 0;
                 padding-left: 1.2rem;
             }
-
             .markdown-syntax-help li {
                 margin-bottom: 0.4rem;
             }
@@ -186,31 +173,26 @@ class MarkdownToDocxConverter {
         if (!isset($_POST['markdown_nonce']) || !wp_verify_nonce($_POST['markdown_nonce'], 'convert_markdown_nonce')) {
             wp_die('Security check failed');
         }
-
         // Restrict to users who can edit posts
         if (!current_user_can('edit_posts')) {
             wp_die('You are not allowed to convert documents.');
         }
-
         // Sanitize and unescape markdown content
         $markdown_content = stripslashes(sanitize_textarea_field($_POST['markdown_content']));
         $document_title = stripslashes(sanitize_text_field($_POST['document_title']));
-
         if (empty($markdown_content)) {
             wp_redirect(admin_url('admin.php?page=markdown-to-docx&error=empty'));
             exit;
         }
-
         // Convert Markdown to HTML
         $html_content = $this->markdown_to_html($markdown_content);
-
         // Generate and download the final document
         $this->create_docx_file($html_content, $document_title);
     }
 
     /**
      * Converts basic Markdown syntax into HTML
-     * Supports headers, bold, italic, links, lists, and paragraphs
+     * Supports headers, bold, italic, links, lists, paragraphs, and tables
      * @param string $markdown Raw Markdown input
      * @return string HTML output
      */
@@ -248,6 +230,44 @@ class MarkdownToDocxConverter {
             return "<ol>{$items}</ol>";
         }, $html);
 
+        // Tables
+        $html = preg_replace_callback('/^(?:\|.*?\|\n){2,}/m', function ($matches) {
+            $lines = explode("\n", trim($matches[0]));
+            $header = str_getcsv(trim($lines[0], '|'), '|');
+            $separator = str_getcsv(trim($lines[1], '|'), '|');
+
+            // Validate separator line
+            foreach ($separator as $cell) {
+                if (!preg_match('/^-+$/', $cell)) {
+                    return $matches[0]; // Invalid table structure
+                }
+            }
+
+            $rows = array_map(function ($line) {
+                return str_getcsv(trim($line, '|'), '|');
+            }, array_slice($lines, 2));
+
+            // Build HTML table
+            $table = '<table>';
+            $table .= '<thead><tr>';
+            foreach ($header as $cell) {
+                $table .= '<th>' . htmlspecialchars($cell) . '</th>';
+            }
+            $table .= '</tr></thead>';
+            $table .= '<tbody>';
+
+            foreach ($rows as $row) {
+                $table .= '<tr>';
+                foreach ($row as $cell) {
+                    $table .= '<td>' . htmlspecialchars($cell) . '</td>';
+                }
+                $table .= '</tr>';
+            }
+
+            $table .= '</tbody></table>';
+            return $table;
+        }, $html);
+
         // Paragraphs
         $html = preg_replace('/\n{2,}/', '</p><p>', $html);
         $html = '<p>' . trim($html) . '</p>';
@@ -280,20 +300,16 @@ class MarkdownToDocxConverter {
     private function create_with_phpword($html_content, $title) {
         try {
             $phpWord = new \PhpOffice\PhpWord\PhpWord();
-
             // Set document metadata
             $properties = $phpWord->getDocInfo();
             $properties->setCreator('WordPress Markdown to DOCX Plugin');
             $properties->setTitle($title);
-
             // Add content using PHPWord's built-in HTML parser
             \PhpOffice\PhpWord\Shared\Html::addHtml($phpWord->addSection(), $html_content);
-
             // Send headers to force download
             header('Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document');
             header('Content-Disposition: attachment;filename="' . sanitize_file_name($title) . '.docx"');
             header('Cache-Control: max-age=0');
-
             // Save to output stream
             $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
             $objWriter->save('php://output');
@@ -315,11 +331,9 @@ class MarkdownToDocxConverter {
         header("Content-Disposition: attachment;Filename=" . sanitize_file_name($title) . ".doc");
         header("Pragma: no-cache");
         header("Expires: 0");
-
         echo "<html><head><meta charset='UTF-8'><title>" . esc_html($title) . "</title></head><body>";
         echo $html_content;
         echo "</body></html>";
-
         exit;
     }
 }
