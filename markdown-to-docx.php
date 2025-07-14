@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Markdown to DOCX Converter
  * Description: Convert Markdown text to Word DOCX format. Use [markdown_to_docx] shortcode to embed on any page.
- * Version: 1.5
+ * Version: 1.6
  * Author: Damon Noisette
  */
 // Prevent direct access
@@ -106,7 +106,7 @@ class MarkdownToDocxConverter {
             <div class="markdown-syntax-help">
                 <h4>Supported Syntax</h4>
                 <ul>
-                    <li><strong>Headers:</strong> # H1, ## H2, ### H3</li>
+                    <li><strong>Headers:</strong> # H1, ## H2, ### H3, #### H4</li>
                     <li><strong>Bold:</strong> **bold text**</li>
                     <li><strong>Italic:</strong> *italic text*</li>
                     <li><strong>Links:</strong> [text](url)</li>
@@ -203,9 +203,10 @@ class MarkdownToDocxConverter {
         $html = preg_replace('/\r\n|\r/', "\n", $html);
 
         // Headers
-        $html = preg_replace('/^### (.*$)/m', '<h3>$1</h3>', $html);
-        $html = preg_replace('/^## (.*$)/m', '<h2>$1</h2>', $html);
-        $html = preg_replace('/^# (.*$)/m', '<h1>$1</h1>', $html);
+        $html = preg_replace('/^#### (.*)$/m', '<h4>$1</h4>', $html); // H4 support
+        $html = preg_replace('/^### (.*)$/m', '<h3>$1</h3>', $html);
+        $html = preg_replace('/^## (.*)$/m', '<h2>$1</h2>', $html);
+        $html = preg_replace('/^# (.*)$/m', '<h1>$1</h1>', $html);
 
         // Bold and Italic
         $html = preg_replace('/\*\*(.*?)\*\*/', '<strong>$1</strong>', $html);
@@ -259,6 +260,9 @@ class MarkdownToDocxConverter {
             foreach ($rows as $row) {
                 $table .= '<tr>';
                 foreach ($row as $cell) {
+                    // Apply bold/italic formatting within cells
+                    $cell = preg_replace('/\*\*(.*?)\*\*/', '<strong>$1</strong>', $cell);
+                    $cell = preg_replace('/\*(.*?)\*/', '<em>$1</em>', $cell);
                     $table .= '<td>' . htmlspecialchars($cell) . '</td>';
                 }
                 $table .= '</tr>';
